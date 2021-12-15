@@ -1,7 +1,6 @@
 import socket
 import threading
 import time
-import wx
 
 def tcplink(sock, addr):
     print('Accept new connection from %s:%s...' % addr)
