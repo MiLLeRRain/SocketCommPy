@@ -13,7 +13,6 @@ s.bind((host, 9999))
 s.listen(5)
 # list to hold connected clients
 socs = []
-works = []
 client_map = {}
 
 
@@ -22,6 +21,7 @@ class ChatServer:
         self.root = Tk()
         self.build_ui(self.root)
 
+        self.work = None
         self.msg_field = None
         self.entry_box = None
 
@@ -56,12 +56,11 @@ class ChatServer:
         root.mainloop()
 
     def start_server(self):
-        work = threading.Thread(target=self.pre_thread, args=(works))
-        works.append(work)
-        work.start()
+        self.work = threading.Thread(target=self.pre_thread, )
+        self.work.start()
 
-    def pre_thread(self, work):
-        print('I am thread-' + str(works.index(work)) + ', waiting for connection...')
+    def pre_thread(self):
+        print('I am thread, waiting for connection...')
         while True:
             # accept a connection
             sock, addr = s.accept()
@@ -73,14 +72,14 @@ class ChatServer:
                 t.start()
             except threading.ThreadError:
                 print('listen thread error')
-            # end thread and remove from list and dict
-            time.sleep(3)
-            t.join()
-            work.join()
-            client_map.pop(index)
-            socs.remove(index)
-            works.remove(work)
-            print('connection dropped')
+        # end thread and remove from list and dict
+        time.sleep(3)
+        t.join()
+        self.work.join()
+        client_map.pop(index)
+        print(client_map)
+        socs.remove(index)
+        print('connection dropped')
 
     def listen(self, sock, addr, msg_field):
         print('Accept new connection from %s:%s...' % addr)
