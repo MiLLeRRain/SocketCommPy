@@ -5,6 +5,7 @@ import time
 import tkinter
 from tkinter import *
 from tkinter import ttk
+import tkinter.messagebox
 
 # Socket setup
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -15,66 +16,78 @@ s.listen(5)
 socs = []
 
 
-def start_threads(_id, msg_field, stop):
-    print('Waiting for connection...')
-    print("I am thread", _id)
-    while True:
-        print("I am thread {} waiting for connection".format(_id))
-        # accept a connection:
-        sock, addr = s.accept()
-        socs.append(sock)
-        # Create a new Thread for new tcp-connection:
-        t = threading.Thread(target=tcp_link, args=(sock, addr, msg_field))
-        t.start()
-        if stop():
-            print("  Exiting main socket loop.")
-            break
-    print("Thread {}, signing off".format(_id))
-
-
-def tcp_link(sock, addr, msg_field):
-    print('Accept new connection from %s:%s...' % addr)
-    sock.send('Welcome!'.encode())
-    while True:
-        data = sock.recv(1024)
-        if len(data) > 0:
-            msg_field.insert(tkinter.INSERT, '\nClient: ' + data.decode('UTF-8'))
-        time.sleep(1)
-        if data == 'exit' or not data:
-            break
-        # sock.send(('Hello, %s!' % data).encode())
-    sock.close()
-    print('Connection from %s:%s closed.' % addr)
-
-
-def distribute_thread(msg_field):
-    stop_threads = False
-    workers = []
-    for _id in range(1):
-        tmp = threading.Thread(target=start_threads, args=(_id, msg_field, lambda: stop_threads))
-        workers.append(tmp)
-        tmp.start()
-        print(workers)
-    time.sleep(3)
-    print('main: done sleeping.')
-    stop_threads = True
-    for worker in workers:
-        worker.join()
-    print('Finis.')
-    s.close()
-
-
 class ChatServer(threading.Thread):
 
-    def __init__(self, msg_field):
-        distribute_thread(msg_field)
+    def __init__(self, msg_field, entry_box):
+        super().__init__()
+        self.distribute_thread(msg_field)
+        entry_box.bind("<KeyPress-Return>", self.key_event(self, entry_box, msg_field))
 
+    def start_threads(self, _id, msg_field, stop):
+        print('Waiting for connection...')
+        print("I am thread", _id)
+        while True:
+            print("I am thread {} waiting for connection".format(_id))
+            # accept a connection:
+            sock, addr = s.accept()
+            socs.append(sock)
+            # Create a new Thread for new tcp-connection:
+            t = threading.Thread(target=self.tcp_link, args=(sock, addr, msg_field))
+            t.start()
+            if stop():
+                print("  Exiting main socket loop.")
+                break
+        print("Thread {}, signing off".format(_id))
 
-def send_msg(entry_box, msg_field):
-    for soc in socs:
-        soc.send(entry_box.get().encode())
-    msg_field.insert(tkinter.INSERT, '\nServer:' + entry_box.get())
-    entry_box.delete(0, END)
+    def tcp_link(self, sock, addr, msg_field):
+        print('Accept new connection from %s:%s...' % addr)
+        sock.send('Welcome!'.encode())
+        while True:
+            data = sock.recv(1024)
+            if len(data) > 0 and data is not None:
+                msg_field.insert(tkinter.INSERT,
+                                 'Client: ' + time.strftime('%Y-%m-%d %H:%M:%S',
+                                                            time.localtime()) + '\n' + data.decode(
+                                     'UTF-8') + '\n')
+            time.sleep(1)
+            if data == 'exit' or not data:
+                break
+            # sock.send(('Hello, %s!' % data).encode())
+        sock.close()
+        print('Connection from %s:%s closed.' % addr)
+
+    def distribute_thread(self, msg_field):
+        stop_threads = False
+        workers = []
+        for _id in range(10):
+            tmp = threading.Thread(target=self.start_threads, args=(_id, msg_field, lambda: stop_threads))
+            workers.append(tmp)
+            tmp.start()
+            print(workers)
+        time.sleep(3)
+        print('main: done sleeping.')
+        stop_threads = True
+        for worker in workers:
+            worker.join()
+        print('Finis.')
+        s.close()
+
+    def send_msg(self, entry_box, msg_field):
+        for soc in socs:
+            if isinstance(soc, socket.socket):
+                soc.send(entry_box.get().encode())
+        msg = entry_box.get()
+        if len(msg) > 0 and msg is not None:
+            msg_field.insert(tkinter.INSERT,
+                             'Server:' + time.strftime('%Y-%m-%d %H:%M:%S',
+                                                       time.localtime()) + '\n' + entry_box.get() + '\n')
+            entry_box.delete(0, END)
+        else:
+            tkinter.messagebox.showinfo('Warning', "No blank message allowed!")
+
+    def key_event(self, event, entry_box, msg_field):
+        if event.keysym == 'Return':
+            self.send_msg(entry_box, msg_field)
 
 
 # create GUI
@@ -83,23 +96,26 @@ def build_ui():
     root.title("Chat Server")
 
     frame = ttk.Frame(root, padding=10)
-    frame.grid()
+    frame.grid(row=0, column=0, sticky='e')
 
-    msg_field = Text(frame)
+    launch_btn = Button(frame, text="Start service", command=(lambda: start_server(msg_field, entry_box)))
+    launch_btn.pack()
+
+    frame1 = ttk.Frame(root, padding=10)
+    frame1.grid(row=1, column=0, sticky='w')
+
+    msg_field = Text(frame1)
     msg_field.size()
-    msg_field.grid()
-
-    launch_btn = Button(frame, text="Start service", command=(lambda: start_server(msg_field)))
-    launch_btn.grid()
+    msg_field.pack()
 
     frame2 = ttk.Frame(root, padding=10)
-    frame2.grid()
+    frame2.grid(row=2, column=0, sticky='w')
 
-    entry_box = ttk.Entry(frame2, width=98)
-    entry_box.grid()
+    entry_box = ttk.Entry(frame2, width=86)
+    entry_box.pack(side='left')
 
-    send_btn = Button(frame2, text="Send", command=(lambda: send_msg(entry_box, msg_field)))
-    send_btn.grid()
+    send_btn = Button(frame2, text="Send", command=(lambda: ChatServer.send_msg(ChatServer, entry_box, msg_field)))
+    send_btn.pack(side='left')
 
     root.mainloop()
 
@@ -108,9 +124,9 @@ def main():
     build_ui()
 
 
-def start_server(msg_field):
+def start_server(msg_field, entry_box):
     try:
-        _thread.start_new_thread(ChatServer, (msg_field,))
+        _thread.start_new_thread(ChatServer, (msg_field, entry_box, ))
     except _thread.error:
         print('error: cannot create thread.')
 
