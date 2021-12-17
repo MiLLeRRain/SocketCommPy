@@ -14,6 +14,7 @@ s.listen(5)
 # list to hold connected clients
 socs = []
 works = []
+client_map = {}
 
 
 class ChatServer:
@@ -55,20 +56,31 @@ class ChatServer:
         root.mainloop()
 
     def start_server(self):
-        work = threading.Thread(target=self.pre_thread)
+        work = threading.Thread(target=self.pre_thread, args=(works))
         works.append(work)
         work.start()
+        time.sleep(3)
+        # end thread and remove from list
+        work.join()
+        works.remove(work)
 
-    def pre_thread(self):
+    def pre_thread(self, work):
+        print('I am thread-' + str(works.index(work)) + 'Waiting for connection...')
         while True:
+            # accept a connection
             sock, addr = s.accept()
             socs.append(sock)
+            index = socs.index(sock)
+            client_map[index] = sock
             t = threading.Thread(target=self.listen, args=(sock, addr, self.msg_field,))
             try:
                 t.start()
             except threading.ThreadError:
-                print('tcp_link thread error')
+                print('listen thread error')
+            # end thread and remove from list and dict
             t.join()
+            client_map.pop(index)
+            socs.remove(index)
             print('connection dropped')
 
     def listen(self, sock, addr, msg_field):
@@ -81,7 +93,8 @@ class ChatServer:
                                  'Client' + str(socs.index(sock))
                                  + ' | ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
                                  + '\n' + data.decode('UTF-8') + '\n', 'client')
-            if not data:
+            if data.decode('UTF-8') == 'exit' or not data:
+                time.sleep(5)
                 break
             time.sleep(1)
         sock.close()
