@@ -59,13 +59,9 @@ class ChatServer:
         work = threading.Thread(target=self.pre_thread, args=(works))
         works.append(work)
         work.start()
-        time.sleep(3)
-        # end thread and remove from list
-        work.join()
-        works.remove(work)
 
     def pre_thread(self, work):
-        print('I am thread-' + str(works.index(work)) + 'Waiting for connection...')
+        print('I am thread-' + str(works.index(work)) + ', waiting for connection...')
         while True:
             # accept a connection
             sock, addr = s.accept()
@@ -78,9 +74,12 @@ class ChatServer:
             except threading.ThreadError:
                 print('listen thread error')
             # end thread and remove from list and dict
+            time.sleep(3)
             t.join()
+            work.join()
             client_map.pop(index)
             socs.remove(index)
+            works.remove(work)
             print('connection dropped')
 
     def listen(self, sock, addr, msg_field):
@@ -91,7 +90,7 @@ class ChatServer:
             if len(data) > 0 and data is not None:
                 msg_field.insert(tkinter.INSERT,
                                  'Client' + str(socs.index(sock))
-                                 + ' | ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+                                 + ': ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
                                  + '\n' + data.decode('UTF-8') + '\n', 'client')
             if data.decode('UTF-8') == 'exit' or not data:
                 time.sleep(5)
@@ -107,7 +106,7 @@ class ChatServer:
                 if isinstance(soc, socket.socket):
                     soc.send(self.entry_box.get().encode())
             self.msg_field.insert(tkinter.INSERT,
-                                  'Server | '
+                                  'Server: '
                                   + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
                                   + '\n' + self.entry_box.get() + '\n', 'server')
             self.entry_box.delete(0, END)
