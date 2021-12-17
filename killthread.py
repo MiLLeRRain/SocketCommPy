@@ -1,4 +1,5 @@
 import os
+
 with os.popen('netstat -aon|findstr "9999"') as res:
     res = res.read().split('\n')
 result = []

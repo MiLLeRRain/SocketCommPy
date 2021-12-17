@@ -12,12 +12,11 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host = '127.0.0.1'
 s.bind((host, 9999))
 s.listen(5)
-# array to hold connected clients
+# list to hold connected clients
 socs = []
 
 
-class ChatServer(threading.Thread):
-
+class ChatServer:
     def __init__(self, msg_field, entry_box):
         super().__init__()
         self.distribute_thread(msg_field)
@@ -46,9 +45,9 @@ class ChatServer(threading.Thread):
             data = sock.recv(1024)
             if len(data) > 0 and data is not None:
                 msg_field.insert(tkinter.INSERT,
-                                 'Client: ' + time.strftime('%Y-%m-%d %H:%M:%S',
-                                                            time.localtime()) + '\n' + data.decode(
-                                     'UTF-8') + '\n')
+                                 'Client' + str(socs.index(sock))
+                                 + ' | ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+                                 + '\n' + data.decode('UTF-8') + '\n')
             time.sleep(1)
             if data == 'exit' or not data:
                 break
@@ -59,7 +58,7 @@ class ChatServer(threading.Thread):
     def distribute_thread(self, msg_field):
         stop_threads = False
         workers = []
-        for _id in range(10):
+        for _id in range(5):
             tmp = threading.Thread(target=self.start_threads, args=(_id, msg_field, lambda: stop_threads))
             workers.append(tmp)
             tmp.start()
@@ -73,14 +72,15 @@ class ChatServer(threading.Thread):
         s.close()
 
     def send_msg(self, entry_box, msg_field):
-        for soc in socs:
-            if isinstance(soc, socket.socket):
-                soc.send(entry_box.get().encode())
         msg = entry_box.get()
         if len(msg) > 0 and msg is not None:
+            for soc in socs:
+                if isinstance(soc, socket.socket):
+                    soc.send(entry_box.get().encode())
             msg_field.insert(tkinter.INSERT,
-                             'Server:' + time.strftime('%Y-%m-%d %H:%M:%S',
-                                                       time.localtime()) + '\n' + entry_box.get() + '\n')
+                             'Server | '
+                             + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+                             + '\n' + entry_box.get() + '\n')
             entry_box.delete(0, END)
         else:
             tkinter.messagebox.showinfo('Warning', "No blank message allowed!")
@@ -120,15 +120,15 @@ def build_ui():
     root.mainloop()
 
 
-def main():
-    build_ui()
-
-
 def start_server(msg_field, entry_box):
     try:
-        _thread.start_new_thread(ChatServer, (msg_field, entry_box, ))
+        _thread.start_new_thread(ChatServer, (msg_field, entry_box,))
     except _thread.error:
         print('error: cannot create thread.')
+
+
+def main():
+    build_ui()
 
 
 if __name__ == '__main__':
