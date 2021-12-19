@@ -11,7 +11,7 @@ import tkinter.messagebox
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host = '127.0.0.1'
 s.bind((host, 9999))
-s.listen(5)
+s.receive_thread(5)
 # list to hold connected clients
 socs = []
 

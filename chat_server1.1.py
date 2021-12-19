@@ -9,8 +9,10 @@ import tkinter.messagebox
 # Socket setup
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host = '127.0.0.1'
+# bind ip and port
 s.bind((host, 9999))
-s.listen(5)
+# open listener, 10 connects
+s.listen(10)
 # list to hold connected clients
 socs = []
 client_map = {}
@@ -56,10 +58,10 @@ class ChatServer:
         root.mainloop()
 
     def start_server(self):
-        self.work = threading.Thread(target=self.pre_thread, )
+        self.work = threading.Thread(target=self.listener_thread, )
         self.work.start()
 
-    def pre_thread(self):
+    def listener_thread(self):
         print('I am thread, waiting for connection...')
         while True:
             # accept a connection
@@ -67,7 +69,7 @@ class ChatServer:
             socs.append(sock)
             index = socs.index(sock)
             client_map[index] = sock
-            t = threading.Thread(target=self.listen, args=(sock, addr, self.msg_field,))
+            t = threading.Thread(target=self.receive_thread, args=(sock, addr, self.msg_field,))
             try:
                 t.start()
             except threading.ThreadError:
@@ -81,11 +83,16 @@ class ChatServer:
         socs.remove(index)
         print('connection dropped')
 
-    def listen(self, sock, addr, msg_field):
+    def receive_thread(self, sock, addr, msg_field):
         print('Accept new connection from %s:%s...' % addr)
         sock.send(('Welcome! Client' + str(socs.index(sock))).encode())
         while True:
-            data = sock.recv(1024)
+            try:
+                data = sock.recv(1024)
+            except ConnectionResetError:
+                print('connection dropped' + str(sock))
+                socs.remove(sock)
+                return
             if len(data) > 0 and data is not None:
                 msg_field.insert(tkinter.INSERT,
                                  'Client' + str(socs.index(sock))
@@ -93,7 +100,7 @@ class ChatServer:
                                  + '\n' + data.decode('UTF-8') + '\n', 'client')
             if data.decode('UTF-8') == 'exit' or not data:
                 time.sleep(5)
-                break
+                return;
             time.sleep(1)
         sock.close()
         print('Connection from %s:%s closed.' % addr)
