@@ -11,7 +11,7 @@ import tkinter.messagebox
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host = '127.0.0.1'
 s.bind((host, 9999))
-s.receive_thread(5)
+s.listen(5)
 # list to hold connected clients
 socs = []
 
@@ -51,7 +51,6 @@ class ChatServer:
             time.sleep(1)
             if data == 'exit' or not data:
                 break
-            # sock.send(('Hello, %s!' % data).encode())
         sock.close()
         print('Connection from %s:%s closed.' % addr)
 
